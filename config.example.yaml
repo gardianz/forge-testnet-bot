@@ -1,0 +1,20 @@
+evmRpc: "https://test.chain.opentensor.ai"
+chainId: 945
+substrateRpc: "wss://test.finney.opentensor.ai:443"
+ss58Format: 42
+forgeFaucetUrl: "https://testnet.forge.endure.network"   # devnetFaucet route base; confirm in Task 6
+scheduleCron: "0 9 * * *"
+thresholds:
+  minSubstrateTao: "1.0"     # human TAO units
+  minEvmGas: "0.1"
+  warpAmount: "0.5"
+  supplyAmount: "0.4"
+  borrowFraction: 0.3        # fraction of available borrow liquidity
+maxConcurrent: 3
+stepDelayMs: 4000
+accountDelayMs: 8000
+marketToken: "wsTAO"
+recycle: true                # repay + redeem after borrow
+dryRun: true
+captcha:
+  provider: "2captcha"       # or "anticaptcha"

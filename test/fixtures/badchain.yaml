@@ -1,0 +1,11 @@
+evmRpc: "https://test.chain.opentensor.ai"
+chainId: 1
+substrateRpc: "wss://test.finney.opentensor.ai:443"
+ss58Format: 42
+forgeFaucetUrl: "https://testnet.forge.endure.network"
+thresholds:
+  minSubstrateTao: "1.0"
+  minEvmGas: "0.1"
+  warpAmount: "0.5"
+  supplyAmount: "0.4"
+  borrowFraction: 0.3

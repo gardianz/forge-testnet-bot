@@ -1,0 +1,35 @@
+import { readFileSync } from 'node:fs';
+import yaml from 'js-yaml';
+import { z } from 'zod';
+
+const Thresholds = z.object({
+  minSubstrateTao: z.string(),
+  minEvmGas: z.string(),
+  warpAmount: z.string(),
+  supplyAmount: z.string(),
+  borrowFraction: z.number().positive().max(0.9),
+});
+
+const ConfigSchema = z.object({
+  evmRpc: z.string().url(),
+  chainId: z.literal(945),
+  substrateRpc: z.string(),
+  ss58Format: z.number().int(),
+  forgeFaucetUrl: z.string().url(),
+  scheduleCron: z.string().default('0 9 * * *'),
+  thresholds: Thresholds,
+  maxConcurrent: z.number().int().positive().default(3),
+  stepDelayMs: z.number().int().nonnegative().default(4000),
+  accountDelayMs: z.number().int().nonnegative().default(8000),
+  marketToken: z.enum(['wsTAO', 'WTAO']).default('wsTAO'),
+  recycle: z.boolean().default(true),
+  dryRun: z.boolean().default(true),
+  captcha: z.object({ provider: z.enum(['2captcha', 'anticaptcha']) }).partial().optional(),
+});
+
+export type Config = z.infer<typeof ConfigSchema>;
+
+export function loadConfig(path = 'config.yaml'): Config {
+  const raw = yaml.load(readFileSync(path, 'utf8'));
+  return ConfigSchema.parse(raw);
+}
