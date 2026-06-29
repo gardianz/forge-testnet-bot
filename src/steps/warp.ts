@@ -1,25 +1,32 @@
 import { parseEther } from 'viem';
 import { erc20Balance } from '../evm.ts';
 import { execWrite } from './executor.ts';
-import { ADDRESSES, wstaoAbi, erc20Abi } from '../contracts.ts';
+import { ADDRESSES, wstaoAbi } from '../contracts.ts';
 import type { Step, StepContext, StepResult } from './types.ts';
 
 /**
- * Warp = wrap WTAO into wsTAO. wsTAO is an ERC20 wrapper exposing `wrap(uint256)`
- * (verified by bytecode probe, selector 0xea598cb0). Approve WTAO to wsTAO, then
- * wrap. Confirm one live tx pulls WTAO before scaling (see forge-live-notes.md).
+ * Warp = wrap NATIVE TAO into wsTAO. Verified live: wsTAO.wrap is payable
+ * `wrap(uint256 minSharesOut, uint256 deadline)` — you send TAO as msg.value and
+ * receive wsTAO shares (exchangeRate ~1.0001). No WTAO/approve involved.
+ * minSharesOut=0 (accept any) on testnet; deadline = now + 10 min.
  */
 export const warpStep: Step = {
   name: 'warp',
   async run(ctx: StepContext): Promise<StepResult> {
-    const want = parseEther(ctx.cfg.thresholds.warpAmount);
-    const have = await erc20Balance(ctx.pc, ADDRESSES.wsTAO, ctx.account.h160);
-    if (have >= want) {
-      ctx.log.info({ have: have.toString() }, 'warp: wsTAO balance already sufficient');
+    const want = parseEther(ctx.cfg.thresholds.warpAmount); // native TAO to wrap
+    const ws = await erc20Balance(ctx.pc, ADDRESSES.wsTAO, ctx.account.h160);
+    if (ws >= want) {
+      ctx.log.info({ wsTAO: ws.toString() }, 'warp: wsTAO balance already sufficient');
       return { status: 'skipped' };
     }
-    await execWrite(ctx, { address: ADDRESSES.WTAO, abi: erc20Abi, functionName: 'approve', args: [ADDRESSES.wsTAO, want] });
-    const tx = await execWrite(ctx, { address: ADDRESSES.wsTAO, abi: wstaoAbi, functionName: 'wrap', args: [want] });
+    // Already supplied (wsTAO consumed into vWsTAO) -> nothing to warp.
+    const v = await erc20Balance(ctx.pc, ADDRESSES.vWsTAO, ctx.account.h160);
+    if (v > 0n) {
+      ctx.log.info('warp: already supplied (vWsTAO > 0)');
+      return { status: 'skipped' };
+    }
+    const deadline = BigInt(Math.floor(Date.now() / 1000) + 600);
+    const tx = await execWrite(ctx, { address: ADDRESSES.wsTAO, abi: wstaoAbi, functionName: 'wrap', args: [0n, deadline], value: want });
     return { status: 'done', tx };
   },
 };

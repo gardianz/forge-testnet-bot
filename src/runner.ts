@@ -11,6 +11,7 @@ import { bridgeStep } from './steps/bridge.ts';
 import { faucetEvmStep } from './steps/faucet-evm.ts';
 import { warpStep } from './steps/warp.ts';
 import { supplyStep } from './steps/supply.ts';
+import { collateralStep } from './steps/collateral.ts';
 import { borrowStep } from './steps/borrow.ts';
 import { repayStep } from './steps/repay.ts';
 import { redeemStep } from './steps/redeem.ts';
@@ -18,8 +19,8 @@ import { redeemStep } from './steps/redeem.ts';
 /** Faucet bot: claim substrate TAO + EVM faucet tokens. */
 export const FAUCET_STEPS: Step[] = [faucetSubstrateStep, faucetEvmStep];
 
-/** Main bot: bridge substrate->EVM, then warp/supply/borrow/repay/redeem. */
-export const MAIN_STEPS: Step[] = [bridgeStep, warpStep, supplyStep, borrowStep, repayStep, redeemStep];
+/** Main bot: bridge substrate->EVM, warp, supply, collateral, borrow, repay, redeem. */
+export const MAIN_STEPS: Step[] = [bridgeStep, warpStep, supplyStep, collateralStep, borrowStep, repayStep, redeemStep];
 
 /** Full pipeline (used by --once / --step lookups). */
 export const STEPS: Step[] = [
@@ -28,6 +29,7 @@ export const STEPS: Step[] = [
   faucetEvmStep,
   warpStep,
   supplyStep,
+  collateralStep,
   borrowStep,
   repayStep,
   redeemStep,

@@ -8,6 +8,7 @@ const Thresholds = z.object({
   warpAmount: z.string(),
   supplyAmount: z.string(),
   borrowFraction: z.number().positive().max(0.9),
+  borrowAmount: z.string().default('0.05'), // fixed borrow size in borrow-token units
 });
 
 const ConfigSchema = z.object({
@@ -35,6 +36,17 @@ const ConfigSchema = z.object({
     .object({
       token: z.string().optional(),
       amount: z.string().default('5'),
+    })
+    .optional(),
+  // Borrowing needs a collateral asset with CF>0. wsTAO has CF=0, so supply a
+  // mock Alpha token (mALPHA30, CF=0.25, openly mintable on testnet) as
+  // collateral before borrowing.
+  collateral: z
+    .object({
+      underlying: z.string(),
+      vToken: z.string(),
+      mintAmount: z.string().default('10'),
+      supplyAmount: z.string().default('5'),
     })
     .optional(),
 });
