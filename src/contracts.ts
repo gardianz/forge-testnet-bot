@@ -6,15 +6,16 @@ import wstao from '../abis/wstao.json';
 
 /**
  * Forge (Venus fork) deployment on Bittensor EVM testnet (chain 945).
- * PROVISIONAL — extracted from the app bundle. Verify each against the live
- * chain with `npm run verify` (tools/verify-deployment.ts) before writing.
+ * VERIFIED live via `npm run verify` on 2026-06-29 — all five are CONTRACT and
+ * the comptroller answers getAllMarkets(). (The app bundle ships two deploy
+ * sets; this is the live one keyed by wsTAO=0xcff4…/vWsTAO=0x782E…)
  */
 export const ADDRESSES = {
-  WTAO: '0xBfd66D9636253f11aE43f3428e8df73b5aD6950f',
+  WTAO: '0x757bbFffe6f08FEbBE19638833FfADaa7B369C25',
   wsTAO: '0xcff46eb93307ca7E24A7cE2A1Eb0F485A27D461a',
-  vWTAO: '0xA0973567D4C0F9b04CbE2c0e95CeDb4465F4e4d1',
+  vWTAO: '0x306065C8277ef65741B1CBeB095d755aF4B4b7cf',
   vWsTAO: '0x782E5a6Dc16901ec13D4D1e450A8270F4e6E75cf',
-  comptroller: '0x10C6E9530F1C1AF873a391030a1D9E8ed0630D26',
+  comptroller: '0x999C6a7ee03aE0C0a18503C2ECA0C8d5a9f69f31',
 } as const;
 
 export function assertChainId(actual: number): void {
