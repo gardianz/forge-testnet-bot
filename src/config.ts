@@ -60,6 +60,10 @@ const ConfigSchema = z.object({
   // Path to the proxy list (one proxy per line, mapped to accounts by index).
   // proxy.txt entries OVERRIDE any `proxy` set in accounts.json.
   proxyFile: z.string().default('proxy.txt'),
+  // Route EVM RPC through the per-account proxy too. Proxy-first with a direct
+  // fallback, so a flaky/RPC-blocking proxy won't fail the run. Set false to send
+  // RPC direct and proxy only the faucet (the part that matters for anti-sybil).
+  proxyRpc: z.boolean().default(true),
   // Forge devnet faucet (https://testnet.forge.endure.network/#/devnet-faucet).
   // Claimed daily: mints each listed token via its open `mint(address,uint256)`.
   // `amount` is the per-token default (human units); a token may override it.

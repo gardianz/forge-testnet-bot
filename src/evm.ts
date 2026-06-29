@@ -2,6 +2,7 @@ import {
   createPublicClient,
   createWalletClient,
   http,
+  fallback,
   defineChain,
   type PublicClient,
   type WalletClient,
@@ -33,18 +34,34 @@ function fetchOptions(proxy?: string): Record<string, unknown> {
   return proxy ? { dispatcher: new ProxyAgent(proxy) } : {};
 }
 
-// The public testnet RPC intermittently times out; give it room + retries.
+// One http transport. The public testnet RPC intermittently times out, so the
+// direct path gets room + retries; the proxy path fails fast (retryCount 1) so we
+// fall back to direct quickly instead of wasting ~8s/call on a dead proxy.
+function one(rpc: string, proxy?: string, retryCount = 4) {
+  return http(rpc, { fetchOptions: fetchOptions(proxy), timeout: 60_000, retryCount, retryDelay: 2_000 });
+}
+
+/**
+ * RPC transport. With a proxy, use proxy-FIRST with a DIRECT fallback: a flaky or
+ * RPC-blocking proxy then can't kill the run with "HTTP request failed" — viem
+ * falls back to a direct connection. (A signed tx broadcast is identical from any
+ * IP, so the per-account proxy's anti-sybil value lives in the faucet claim, not
+ * the public RPC.) `proxyRpc: false` skips the proxy for RPC entirely (fastest
+ * when proxies can't reach the RPC node).
+ */
 function transport(rpc: string, proxy?: string) {
-  return http(rpc, { fetchOptions: fetchOptions(proxy), timeout: 60_000, retryCount: 4, retryDelay: 2_000 });
+  return proxy ? fallback([one(rpc, proxy, 1), one(rpc, undefined, 4)]) : one(rpc);
 }
 
 export function makePublicClient(cfg: Config, proxy?: string): PublicClient {
-  return createPublicClient({ chain: defineBittensorTestnet(cfg.evmRpc), transport: transport(cfg.evmRpc, proxy) });
+  const p = cfg.proxyRpc === false ? undefined : proxy;
+  return createPublicClient({ chain: defineBittensorTestnet(cfg.evmRpc), transport: transport(cfg.evmRpc, p) });
 }
 
 export function makeWalletClient(cfg: Config, acct: Account): WalletClient {
   const account = privateKeyToAccount(acct.evmPk);
-  return createWalletClient({ account, chain: defineBittensorTestnet(cfg.evmRpc), transport: transport(cfg.evmRpc, acct.proxy) });
+  const p = cfg.proxyRpc === false ? undefined : acct.proxy;
+  return createWalletClient({ account, chain: defineBittensorTestnet(cfg.evmRpc), transport: transport(cfg.evmRpc, p) });
 }
 
 export const nativeBalance = (pc: PublicClient, addr: `0x${string}`): Promise<bigint> =>
