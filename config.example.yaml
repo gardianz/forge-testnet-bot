@@ -22,7 +22,7 @@ daemon:                        # `npm run daemon` = 24/7, random daily gap
   maxHours: 26
   startJitterMaxSec: 0         # random delay before the first run
 marketToken: "wsTAO"
-recycle: true                # repay + redeem after borrow
+recycle: false               # false = HOLD position (borrow>0, wsTAO locked in vToken); true = repay+redeem each run (unwinds + drains wsTAO)
 dryRun: true                 # set false (or pass --no-dry-run) to broadcast
 proxyFile: "proxy.txt"       # one proxy per line, mapped to accounts by index
 captcha:
