@@ -16,6 +16,7 @@ const ConfigSchema = z.object({
   substrateRpc: z.string(),
   ss58Format: z.number().int(),
   forgeFaucetUrl: z.string().url(),
+  substrateFaucetUrl: z.string().url().default('https://taoswap.org/testnet-faucet'),
   scheduleCron: z.string().default('0 9 * * *'),
   thresholds: Thresholds,
   maxConcurrent: z.number().int().positive().default(3),
