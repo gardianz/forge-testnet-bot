@@ -19,17 +19,17 @@ import { repayStep } from './steps/repay.ts';
 import { redeemStep } from './steps/redeem.ts';
 
 /**
- * Single daily pipeline. Faucet steps run inline (not as a separate bot):
- *   - faucet-devnet  : claim the Forge devnet faucet daily (mint mock tokens).
- *   - faucet-substrate: claim taoswap TAO only when the SS58 balance can't cover
- *     the bridge fee.
- * Then the lending loop: bridge -> warp -> supply -> collateral -> borrow ->
- * repay -> redeem. Every step is idempotent and skips when already satisfied.
+ * Single daily pipeline, ordered so a FRESH (zero-gas) wallet bootstraps itself:
+ *   1. faucet-substrate : claim taoswap TAO (captcha only, needs no gas)
+ *   2. bridge           : move that substrate TAO to EVM as native gas
+ *   3. faucet-devnet     : mint the Forge devnet mock tokens (needs gas — now has it)
+ *   4. warp -> supply -> collateral -> borrow -> repay -> redeem (lending loop)
+ * Every step is idempotent and skips when already satisfied.
  */
 export const STEPS: Step[] = [
-  faucetDevnetStep,
   faucetSubstrateStep,
   bridgeStep,
+  faucetDevnetStep,
   warpStep,
   supplyStep,
   collateralStep,

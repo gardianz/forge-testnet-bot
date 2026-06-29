@@ -4,12 +4,9 @@ import { ProxyAgent } from 'undici';
 import { substrateBalance } from '../substrate.ts';
 import type { Step, StepContext, StepResult } from './types.ts';
 
-/** TAO needed on substrate to fund the bridge (transfer + fee headroom), in rao (9dp). */
-function needRao(ctx: StepContext): bigint {
-  return (
-    parseUnits(ctx.cfg.thresholds.minSubstrateTao, 9) +
-    parseUnits(ctx.cfg.thresholds.substrateFeeBuffer ?? '0.01', 9)
-  );
+/** Claim taoswap only when SS58 free balance is below this (rao, 9dp). */
+function claimBelowRao(ctx: StepContext): bigint {
+  return parseUnits(ctx.cfg.thresholds.minSubstrateClaim ?? '0.5', 9);
 }
 
 /**
@@ -23,21 +20,29 @@ function needRao(ctx: StepContext): bigint {
  * Turnstile token (sitekey 0x4AAAAAADsYqTeKzaXU5Qhb). Turnstile is solvable from
  * sitekey+pageurl alone, so the whole claim is just: solve → POST → poll balance.
  * No headless browser needed (works under cron, no chrome system libs).
+ *
+ * Runs FIRST in the pipeline — a fresh wallet has no EVM gas, and this is the only
+ * source that needs none (captcha only). It funds the SS58 so the bridge can turn
+ * it into gas. A failed/rate-limited claim returns `skipped` (not `failed`) so the
+ * pipeline still proceeds to bridge whatever balance exists.
  */
 export const faucetSubstrateStep: Step = {
   name: 'faucet-substrate',
   async run(ctx: StepContext): Promise<StepResult> {
     const force = process.env.FORGE_FORCE_FAUCET === '1';
-    if (!force && (await substrateBalance(ctx.api!, ctx.account.ss58)) >= needRao(ctx)) {
-      ctx.log.info('faucet-substrate: SS58 balance covers bridge+fee — skipping');
+    if (!force && (await substrateBalance(ctx.api!, ctx.account.ss58)) >= claimBelowRao(ctx)) {
+      ctx.log.info('faucet-substrate: SS58 balance sufficient — skipping');
       return { status: 'skipped' };
     }
     if (ctx.cfg.dryRun) return { status: 'done', tx: 'dry-run' };
     try {
       const ok = await claimViaApi(ctx);
-      return ok ? { status: 'done' } : { status: 'failed', error: 'faucet claim not confirmed' };
+      if (ok) return { status: 'done' };
+      ctx.log.warn('faucet-substrate: claim not confirmed (rate-limited / already claimed?) — continuing');
+      return { status: 'skipped' };
     } catch (e) {
-      return { status: 'failed', error: (e as Error).message };
+      ctx.log.warn({ err: (e as Error).message.split('\n')[0] }, 'faucet-substrate: claim error — continuing');
+      return { status: 'skipped' };
     }
   },
 };

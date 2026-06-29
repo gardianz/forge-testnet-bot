@@ -9,8 +9,11 @@ const Thresholds = z.object({
   supplyAmount: z.string(),
   borrowFraction: z.number().positive().max(0.9),
   borrowAmount: z.string().default('0.05'), // fixed borrow size in borrow-token units
-  // taoswap substrate faucet trigger: claim only when the SS58 free balance can't
-  // cover the bridge transfer (minSubstrateTao) plus this fee headroom.
+  // taoswap substrate faucet trigger: claim only when the SS58 free balance drops
+  // below this (a fresh/empty wallet → claim; after a ~1 TAO claim → skip).
+  minSubstrateClaim: z.string().default('0.5'),
+  // Left on the SS58 when bridging (covers existential deposit + tx fee); also the
+  // headroom the bridge keeps so transferKeepAlive can't hit FundsUnavailable.
   substrateFeeBuffer: z.string().default('0.01'),
 });
 
