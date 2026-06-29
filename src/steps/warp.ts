@@ -1,5 +1,5 @@
 import { parseEther } from 'viem';
-import { erc20Balance } from '../evm.ts';
+import { erc20Balance, nativeBalance } from '../evm.ts';
 import { execWrite } from './executor.ts';
 import { ADDRESSES, wstaoAbi } from '../contracts.ts';
 import type { Step, StepContext, StepResult } from './types.ts';
@@ -24,6 +24,12 @@ export const warpStep: Step = {
     if (v > 0n) {
       ctx.log.info('warp: already supplied (vWsTAO > 0)');
       return { status: 'skipped' };
+    }
+    // Guard: wrapping spends native TAO as msg.value. Fail gracefully (not a raw
+    // OutOfFund revert) when the account can't cover the amount + gas headroom.
+    const gas = await nativeBalance(ctx.pc, ctx.account.h160);
+    if (gas <= want) {
+      return { status: 'failed', error: `insufficient native TAO to warp: have ${gas}, need > ${want} (+gas)` };
     }
     const deadline = BigInt(Math.floor(Date.now() / 1000) + 600);
     const tx = await execWrite(ctx, { address: ADDRESSES.wsTAO, abi: wstaoAbi, functionName: 'wrap', args: [0n, deadline], value: want });

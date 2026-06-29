@@ -26,26 +26,32 @@ comptroller answers `getAllMarkets()`):
 Both TAO tokens use **18 decimals on EVM**. Substrate TAO uses **9 decimals (rao)** —
 bridge planck conversion must use `parseUnits(x, 9)` (see Task 14 note).
 
-## Still requires a live capture (funded account / browser)
+## CONFIRMED LIVE (2026-06-29, full run on one funded account)
 
-These are NOT yet confirmed; capture before enabling the matching write step:
+All write mechanics verified end-to-end with real testnet txs:
 
-1. **EVM faucet (Task 15)** — CLARIFIED: `devnetFaucet` in the bundle is only the
-   menu route label ("Faucet" page); it is NOT an HTTP endpoint. The Faucet page
-   triggers an **on-chain mint**. Capture one live claim tx in the explorer to
-   get the faucet contract address + method, then set `cfg.evmFaucet`
-   (`{ address, method, passAddress }`) — `src/steps/faucet-evm.ts` calls it.
-   Note the bridge step already supplies native gas, so this faucet is mainly
-   for collateral/test tokens; the step skips harmlessly until configured.
-2. **Warp method (Task 9)** — RESOLVED by bytecode probe: wsTAO is an ERC20
-   wrapper exposing `wrap(uint256)` (selector `0xea598cb0`); it also has
-   `approve`/`transfer`/`balanceOf`. No `deposit*` selectors present. Flow:
-   `WTAO.approve(wsTAO, amount)` then `wsTAO.wrap(amount)`. Still worth one live
-   tx to confirm it pulls WTAO (not native) and the exact amount semantics.
-3. **Bridge mapping (Task 14)** — confirm that sending native TAO to
-   `h160ToMirrorSs58(h160)` credits the EVM balance on this testnet (vs a
-   precompile / bridge.bittensor.com flow). Validate with one manual SS58→H160
-   bridge, then keep or fix `src/substrate.ts`.
-4. **Substrate faucet (Task 16)** — captcha type on taoswap testnet faucet
-   (hCaptcha / reCAPTCHA / Turnstile) + form field names. Capture by loading the
-   page; wire the solver provider accordingly.
+1. **EVM faucet** = **mint the mock collateral token**. `devnetFaucet` in the
+   bundle is only the menu route label, NOT an HTTP endpoint. WTAO (`0x757b…`)
+   and the mock Alpha tokens expose an open `mint(address,uint256)` on testnet.
+   `src/steps/faucet-evm.ts` mints WTAO (cfg.evmFaucet). ✓ tx `0x2c5fa5da…`
+2. **Bridge SS58→H160** = transfer native TAO to `h160ToMirrorSs58(h160)`
+   (`blake2_256("evm:"+h160)` → ss58). Credits EVM native balance. ✓ bridged
+   0.5 TAO, EVM gas rose 0.0989→0.598. Mapping in `src/substrate.ts` is correct.
+3. **Warp** = wrap **native TAO** into wsTAO. wsTAO.wrap is **payable**
+   `wrap(uint256 minSharesOut, uint256 deadline)` — send TAO as msg.value, get
+   wsTAO shares (exchangeRate ≈ 1.0001). NOT WTAO. No approve. ✓ tx `0x3a3bc940…`
+4. **Supply** = approve wsTAO → `vWsTAO.mint` → `enterMarkets`. ✓ tx `0x50c3fe6f…`
+5. **Collateral / borrow** — wsTAO has **collateralFactor 0** (no borrow power).
+   Borrowing requires an Alpha collateral with CF>0. mALPHA30 (`0x1D5E4617…`,
+   vToken `0x037b37B4…`, CF 0.25) is openly mintable. `src/steps/collateral.ts`
+   mints+supplies it, then borrow succeeds. ✓ collateral `0x0ec6bb8b…`,
+   borrow 0.05 wsTAO `0xed2466b3…`, repay `0x4d939247…`.
+
+## Still untested
+
+- **Substrate faucet (taoswap)** — the live test account was already funded
+  (10 TAO), so `faucet-substrate.ts` skipped. The Playwright + 2captcha path
+  (selectors, captcha sitekey) is unverified; tune on a fresh, unfunded account.
+- The RPC `https://test.chain.opentensor.ai` occasionally times out on
+  `eth_getBlockByNumber` during receipt waits; steps are idempotent so a re-run
+  settles any step left in that state.
