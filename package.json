@@ -10,7 +10,7 @@
     "bot:dry": "tsx src/main.ts --dry-run",
     "bot:live": "tsx src/main.ts --no-dry-run",
     "schedule": "tsx src/main.ts --schedule",
-    "daemon": "tsx src/main.ts --daemon --no-dashboard",
+    "daemon": "tsx src/main.ts --daemon",
     "check": "tsx src/main.ts --check --no-dashboard",
     "gen": "tsx src/main.ts --gen",
     "verify": "tsx tools/verify-deployment.ts"

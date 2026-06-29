@@ -96,7 +96,18 @@ async function printCheck(cfg: Config, accounts: Account[]): Promise<void> {
   if (api) await api.disconnect();
 }
 
+/** Load .env into process.env (npm/tsx don't do this automatically). Node 24+. */
+function loadEnv(): void {
+  const path = process.env.FORGE_ENV || '.env';
+  try {
+    (process as { loadEnvFile?: (p: string) => void }).loadEnvFile?.(path);
+  } catch {
+    /* no .env file — env may be provided by the shell/process manager */
+  }
+}
+
 export async function main(): Promise<void> {
+  loadEnv();
   quietPolkadot();
   const args = parseArgs(process.argv.slice(2));
   const cfg = loadConfig(process.env.FORGE_CONFIG || 'config.yaml');

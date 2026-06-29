@@ -224,7 +224,14 @@ export class Dashboard {
 
   private render(): void {
     if (!this.enabled) return;
-    process.stdout.write('\x1b[H' + this.frame() + '\x1b[J');
+    // Append \x1b[K (erase to end of line) to every line so a shorter new line
+    // doesn't leave stale tail characters from the previous frame; the trailing
+    // \x1b[J clears any extra rows below when the frame shrinks.
+    const body = this.frame()
+      .split('\n')
+      .map((l) => l + '\x1b[K')
+      .join('\n');
+    process.stdout.write('\x1b[H' + body + '\x1b[J');
   }
 }
 
