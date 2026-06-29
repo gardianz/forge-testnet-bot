@@ -1,0 +1,9 @@
+node_modules/
+accounts.json
+config.yaml
+.env
+state/
+logs/
+*.local.*
+.browser-profile/
+user-data/
