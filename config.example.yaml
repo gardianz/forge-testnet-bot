@@ -8,16 +8,27 @@ scheduleCron: "0 9 * * *"
 faucetCron: "0 8 * * *"        # faucet bot: claim substrate + EVM faucet daily
 mainCron: "30 8 * * *"        # main bot: bridge/warp/supply/borrow daily (after faucet)
 thresholds:
-  minSubstrateTao: "1.0"     # human TAO units
-  minEvmGas: "0.1"
-  warpAmount: "0.5"
-  supplyAmount: "0.4"
-  borrowFraction: 0.3        # fraction of available borrow liquidity
-maxConcurrent: 3
-stepDelayMs: 4000
-accountDelayMs: 8000
+  minSubstrateTao: "1.0"     # human TAO units; bridge/faucet target
+  minEvmGas: "0.5"           # below this the bridge step tops up EVM gas
+  warpAmount: "0.2"          # native TAO wrapped into wsTAO per run
+  supplyAmount: "0.15"       # wsTAO supplied
+  borrowFraction: 0.3        # (legacy; borrow uses borrowAmount below)
+  borrowAmount: "0.05"       # fixed borrow size, in borrow-token units
+maxConcurrent: 1
+stepDelayMs: 3000
+accountDelayMs: 5000
 marketToken: "wsTAO"
 recycle: true                # repay + redeem after borrow
-dryRun: true
+dryRun: true                 # set false (or pass --no-dry-run) to broadcast
 captcha:
   provider: "2captcha"       # or "anticaptcha"
+# EVM faucet = mint the mock collateral token (open mint on testnet).
+evmFaucet:
+  token: "0x757bbFffe6f08FEbBE19638833FfADaa7B369C25"   # WTAO
+  amount: "5"
+# Borrow needs CF>0 collateral (wsTAO has CF 0). mALPHA30 is openly mintable.
+collateral:
+  underlying: "0x1D5E4617ad59c1A4428526F6994410e513587a96"   # mALPHA30 (CF 0.25)
+  vToken: "0x037b37B4523C5f5D5291460d01a53778f9d7D6c3"       # vMALPHA30
+  mintAmount: "10"
+  supplyAmount: "5"

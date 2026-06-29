@@ -43,16 +43,28 @@ Then capture the three remaining live-only values and fill them in (see
 2. **Bridge** — confirm sending TAO to the H160 mirror-SS58 credits EVM balance.
 3. **Substrate faucet** — confirm taoswap captcha type + page selectors.
 
-## Run
+## Two bots (run daily)
+
+- **faucet-bot** — claim substrate TAO (taoswap) + mint EVM faucet token. `faucetCron`.
+- **main-bot** — bridge SS58→H160, warp TAO→wsTAO, supply, collateral, borrow, repay, redeem. `mainCron`.
+
+Each account provides separate keys: `evmPk` (EVM signer) + `substrateSeed` (substrate signer), or a single `mnemonic` for both.
 
 ```bash
 npm run check                    # read-only status: balances + per-step state
-npm run run:once                 # full pipeline, dryRun (simulate, no broadcast)
-tsx src/main.ts --once --no-dry-run --account acc1   # go live on ONE account first
-tsx src/main.ts --once --no-dry-run                  # then all accounts
-tsx src/main.ts --schedule                           # daily cron (scheduleCron)
-tsx src/main.ts --step warp --account acc1           # run a single step (debug)
+
+npm run faucet                   # faucet bot once (dryRun per config)
+npm run main                     # main bot once
+tsx src/faucet-bot.ts --no-dry-run   # go live: claim faucets
+tsx src/main-bot.ts --no-dry-run     # go live: bridge/warp/supply/borrow/repay/redeem
+
+npm run faucet:schedule          # daily faucet bot (faucetCron)
+npm run main:schedule            # daily main bot (mainCron)
+
+tsx src/main.ts --step warp --account acc1 --no-dry-run   # single step (debug)
 ```
+
+All on-chain mechanics are **verified live** — see `docs/superpowers/specs/forge-live-notes.md` for the confirmed flow + tx hashes. The only untested path is the taoswap substrate faucet (the test account was pre-funded); its Playwright + 2captcha selectors need tuning on a fresh account.
 
 Safety: `dryRun: true` by default; writes require `--no-dry-run`. Every write
 asserts chainId 945 and refuses any other chain. `accounts.json`, `config.yaml`,

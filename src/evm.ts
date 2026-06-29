@@ -33,20 +33,18 @@ function fetchOptions(proxy?: string): Record<string, unknown> {
   return proxy ? { dispatcher: new ProxyAgent(proxy) } : {};
 }
 
+// The public testnet RPC intermittently times out; give it room + retries.
+function transport(rpc: string, proxy?: string) {
+  return http(rpc, { fetchOptions: fetchOptions(proxy), timeout: 60_000, retryCount: 4, retryDelay: 2_000 });
+}
+
 export function makePublicClient(cfg: Config, proxy?: string): PublicClient {
-  return createPublicClient({
-    chain: defineBittensorTestnet(cfg.evmRpc),
-    transport: http(cfg.evmRpc, { fetchOptions: fetchOptions(proxy) }),
-  });
+  return createPublicClient({ chain: defineBittensorTestnet(cfg.evmRpc), transport: transport(cfg.evmRpc, proxy) });
 }
 
 export function makeWalletClient(cfg: Config, acct: Account): WalletClient {
   const account = privateKeyToAccount(acct.evmPk);
-  return createWalletClient({
-    account,
-    chain: defineBittensorTestnet(cfg.evmRpc),
-    transport: http(cfg.evmRpc, { fetchOptions: fetchOptions(acct.proxy) }),
-  });
+  return createWalletClient({ account, chain: defineBittensorTestnet(cfg.evmRpc), transport: transport(cfg.evmRpc, acct.proxy) });
 }
 
 export const nativeBalance = (pc: PublicClient, addr: `0x${string}`): Promise<bigint> =>
