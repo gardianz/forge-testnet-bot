@@ -30,9 +30,13 @@ bridge planck conversion must use `parseUnits(x, 9)` (see Task 14 note).
 
 These are NOT yet confirmed; capture before enabling the matching write step:
 
-1. **EVM faucet (Task 15)** — exact route + request body of the Forge in-app
-   `devnetFaucet`. Capture from the site's network trace when clicking
-   "Claim EVM faucet". Fill into `src/steps/faucet-evm.ts`.
+1. **EVM faucet (Task 15)** — CLARIFIED: `devnetFaucet` in the bundle is only the
+   menu route label ("Faucet" page); it is NOT an HTTP endpoint. The Faucet page
+   triggers an **on-chain mint**. Capture one live claim tx in the explorer to
+   get the faucet contract address + method, then set `cfg.evmFaucet`
+   (`{ address, method, passAddress }`) — `src/steps/faucet-evm.ts` calls it.
+   Note the bridge step already supplies native gas, so this faucet is mainly
+   for collateral/test tokens; the step skips harmlessly until configured.
 2. **Warp method (Task 9)** — RESOLVED by bytecode probe: wsTAO is an ERC20
    wrapper exposing `wrap(uint256)` (selector `0xea598cb0`); it also has
    `approve`/`transfer`/`balanceOf`. No `deposit*` selectors present. Flow:

@@ -25,6 +25,17 @@ const ConfigSchema = z.object({
   recycle: z.boolean().default(true),
   dryRun: z.boolean().default(true),
   captcha: z.object({ provider: z.enum(['2captcha', 'anticaptcha']) }).partial().optional(),
+  // EVM faucet on the Forge site is an on-chain mint (the "Faucet" page calls a
+  // contract), NOT an HTTP endpoint. Fill after capturing one live claim tx:
+  //   address = faucet contract, method = e.g. "faucet" / "mint" / "drip",
+  //   passAddress = true if the method takes the recipient H160 as its arg.
+  evmFaucet: z
+    .object({
+      address: z.string(),
+      method: z.string().default('faucet'),
+      passAddress: z.boolean().default(false),
+    })
+    .optional(),
 });
 
 export type Config = z.infer<typeof ConfigSchema>;
