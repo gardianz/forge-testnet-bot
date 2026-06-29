@@ -1,28 +1,40 @@
 import { parseUnits } from 'viem';
 import { request } from 'undici';
+import { ProxyAgent } from 'undici';
 import { substrateBalance } from '../substrate.ts';
 import type { Step, StepContext, StepResult } from './types.ts';
 
+/** TAO needed on substrate to fund the bridge (transfer + fee headroom), in rao (9dp). */
+function needRao(ctx: StepContext): bigint {
+  return (
+    parseUnits(ctx.cfg.thresholds.minSubstrateTao, 9) +
+    parseUnits(ctx.cfg.thresholds.substrateFeeBuffer ?? '0.01', 9)
+  );
+}
+
 /**
- * Claim the taoswap substrate TAO testnet faucet. The faucet is a captcha-gated
- * SPA, so this drives it with a headless browser (through the account proxy) and
- * solves the captcha via a solver service (CAPTCHA_API_KEY + cfg.captcha.provider).
+ * Claim the taoswap substrate TAO testnet faucet (https://taoswap.org/testnet-faucet)
+ * ONLY when the SS58 free balance can't cover the bridge transfer + fee. Set
+ * FORGE_FORCE_FAUCET=1 to bypass the balance gate (live testing).
  *
- * The page selectors + captcha sitekey are NOT yet confirmed (live-tuning item,
- * see forge-live-notes.md). The skip-check and dry-run paths are fully wired; the
- * browser path is best-effort and logs what it could not find.
+ * Browser-free. Verified live (2026-06-29) by intercepting the SPA's submit: the
+ * page POSTs `{ss58_address, amount, captcha_token}` to
+ * `https://api.taoswap.org/testnet-faucet/`, where captcha_token is a Cloudflare
+ * Turnstile token (sitekey 0x4AAAAAADsYqTeKzaXU5Qhb). Turnstile is solvable from
+ * sitekey+pageurl alone, so the whole claim is just: solve → POST → poll balance.
+ * No headless browser needed (works under cron, no chrome system libs).
  */
 export const faucetSubstrateStep: Step = {
   name: 'faucet-substrate',
   async run(ctx: StepContext): Promise<StepResult> {
-    const want = parseUnits(ctx.cfg.thresholds.minSubstrateTao, 9); // TAO = 9 decimals on substrate
-    if ((await substrateBalance(ctx.api!, ctx.account.ss58)) >= want) {
-      ctx.log.info('faucet-substrate: SS58 balance already sufficient');
+    const force = process.env.FORGE_FORCE_FAUCET === '1';
+    if (!force && (await substrateBalance(ctx.api!, ctx.account.ss58)) >= needRao(ctx)) {
+      ctx.log.info('faucet-substrate: SS58 balance covers bridge+fee — skipping');
       return { status: 'skipped' };
     }
     if (ctx.cfg.dryRun) return { status: 'done', tx: 'dry-run' };
     try {
-      const ok = await claimViaBrowser(ctx);
+      const ok = await claimViaApi(ctx);
       return ok ? { status: 'done' } : { status: 'failed', error: 'faucet claim not confirmed' };
     } catch (e) {
       return { status: 'failed', error: (e as Error).message };
@@ -30,64 +42,53 @@ export const faucetSubstrateStep: Step = {
   },
 };
 
-async function claimViaBrowser(ctx: StepContext): Promise<boolean> {
-  const { chromium } = await import('playwright'); // lazy: keeps unit tests light
-  const proxy = ctx.account.proxy ? { server: ctx.account.proxy } : undefined;
-  const browser = await chromium.launch({ headless: true, proxy });
-  try {
-    const page = await browser.newPage();
-    await page.goto(ctx.cfg.substrateFaucetUrl, { waitUntil: 'networkidle', timeout: 60000 });
-
-    // Fill the SS58 address. Selectors are best-guess — adjust after inspecting
-    // the live page (input[placeholder*=address], input[type=text], etc.).
-    const input = page.locator('input[type="text"], input[placeholder*="address" i]').first();
-    await input.fill(ctx.account.ss58, { timeout: 15000 });
-
-    // Detect a captcha widget and solve it.
-    const token = await solveCaptcha(ctx, page);
-    if (token) {
-      await page.evaluate((t) => {
-        const ta = document.querySelector('textarea[name="g-recaptcha-response"], textarea[name="h-captcha-response"], input[name="cf-turnstile-response"]') as HTMLTextAreaElement | HTMLInputElement | null;
-        if (ta) (ta as any).value = t;
-      }, token);
-    }
-
-    // Submit. Adjust the selector to the live "Claim"/"Request" button.
-    await page.locator('button:has-text("Claim"), button:has-text("Request"), button[type="submit"]').first().click({ timeout: 15000 });
-
-    // Poll the chain for the balance to rise (up to ~2 min).
-    const want = parseUnits(ctx.cfg.thresholds.minSubstrateTao, 9);
-    for (let i = 0; i < 24; i++) {
-      if ((await substrateBalance(ctx.api!, ctx.account.ss58)) >= want) return true;
-      await new Promise((r) => setTimeout(r, 5000));
-    }
-    return false;
-  } finally {
-    await browser.close();
-  }
-}
-
-/**
- * Solve the page captcha with 2captcha (default) or anticaptcha. Reads the
- * sitekey from the captcha iframe and returns a response token, or '' if no
- * captcha / no API key. The provider request shapes follow each service's docs.
- */
-async function solveCaptcha(ctx: StepContext, page: any): Promise<string> {
+async function claimViaApi(ctx: StepContext): Promise<boolean> {
   const apiKey = process.env.CAPTCHA_API_KEY;
   if (!apiKey) {
-    ctx.log.warn('faucet-substrate: CAPTCHA_API_KEY unset — skipping captcha solve');
-    return '';
+    ctx.log.warn('faucet-substrate: CAPTCHA_API_KEY unset — cannot solve Turnstile');
+    return false;
   }
-  const frame = await page.$('iframe[src*="hcaptcha"], iframe[src*="recaptcha"], iframe[src*="turnstile"]');
-  if (!frame) return '';
-  const src: string = await frame.getAttribute('src');
-  const sitekey = new URL(src).searchParams.get('sitekey') || new URL(src).searchParams.get('k') || '';
+  const fc = ctx.cfg.substrateFaucet;
   const pageurl = ctx.cfg.substrateFaucetUrl;
-  const kind = src.includes('hcaptcha') ? 'hcaptcha' : src.includes('turnstile') ? 'turnstile' : 'recaptcha';
+  const before = await substrateBalance(ctx.api!, ctx.account.ss58);
 
+  ctx.log.info({ sitekey: fc.sitekey }, 'faucet-substrate: solving Turnstile');
   const provider = ctx.cfg.captcha?.provider ?? '2captcha';
-  if (provider === '2captcha') return solve2captcha(apiKey, kind, sitekey, pageurl);
-  return solveAnticaptcha(apiKey, kind, sitekey, pageurl);
+  const token =
+    provider === '2captcha'
+      ? await solve2captcha(apiKey, 'turnstile', fc.sitekey, pageurl)
+      : await solveAnticaptcha(apiKey, 'turnstile', fc.sitekey, pageurl);
+  if (!token) return false;
+
+  // POST the claim through the account's proxy, mimicking the SPA's request.
+  const dispatcher = ctx.account.proxy ? new ProxyAgent(ctx.account.proxy) : undefined;
+  const body = JSON.stringify({ ss58_address: ctx.account.ss58, amount: fc.amount, captcha_token: token });
+  ctx.log.info({ api: fc.apiUrl }, 'faucet-substrate: posting claim');
+  const res = await request(fc.apiUrl, {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/json',
+      origin: 'https://taoswap.org',
+      referer: pageurl,
+      'user-agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36',
+    },
+    body,
+    ...(dispatcher ? { dispatcher } : {}),
+  });
+  const text = await res.body.text().catch(() => '');
+  ctx.log.info({ status: res.statusCode, body: text.slice(0, 300) }, 'faucet-substrate: claim response');
+  if (res.statusCode >= 400) return false;
+
+  // Poll the chain for the balance to rise (up to ~2.5 min).
+  for (let i = 0; i < 30; i++) {
+    const now = await substrateBalance(ctx.api!, ctx.account.ss58);
+    if (now > before) {
+      ctx.log.info({ gained: (now - before).toString() }, 'faucet-substrate: balance rose — claim confirmed');
+      return true;
+    }
+    await new Promise((r) => setTimeout(r, 5000));
+  }
+  return false;
 }
 
 async function solve2captcha(key: string, kind: string, sitekey: string, pageurl: string): Promise<string> {
@@ -96,7 +97,7 @@ async function solve2captcha(key: string, kind: string, sitekey: string, pageurl
   const inRes = (await (await request(inUrl)).body.json()) as any;
   if (inRes.status !== 1) throw new Error(`2captcha in: ${inRes.request}`);
   const id = inRes.request;
-  for (let i = 0; i < 24; i++) {
+  for (let i = 0; i < 30; i++) {
     await new Promise((r) => setTimeout(r, 5000));
     const out = (await (await request(`https://2captcha.com/res.php?key=${key}&action=get&id=${id}&json=1`)).body.json()) as any;
     if (out.status === 1) return out.request as string;
@@ -110,7 +111,7 @@ async function solveAnticaptcha(key: string, kind: string, sitekey: string, page
   const createBody = { clientKey: key, task: { type, websiteURL: pageurl, websiteKey: sitekey } };
   const create = (await (await request('https://api.anti-captcha.com/createTask', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(createBody) })).body.json()) as any;
   if (create.errorId) throw new Error(`anticaptcha create: ${create.errorDescription}`);
-  for (let i = 0; i < 24; i++) {
+  for (let i = 0; i < 30; i++) {
     await new Promise((r) => setTimeout(r, 5000));
     const res = (await (await request('https://api.anti-captcha.com/getTaskResult', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ clientKey: key, taskId: create.taskId }) })).body.json()) as any;
     if (res.status === 'ready') return (res.solution.gRecaptchaResponse || res.solution.token) as string;

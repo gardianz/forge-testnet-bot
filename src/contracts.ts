@@ -18,6 +18,24 @@ export const ADDRESSES = {
   comptroller: '0x999C6a7ee03aE0C0a18503C2ECA0C8d5a9f69f31',
 } as const;
 
+/**
+ * Full Forge testnet token map (chain 945), extracted from the live app bundle
+ * (`@endure/chains` testnetAddresses, object `Wi`). These back the on-chain
+ * "devnet faucet" page — each mock token exposes an open `mint(address,uint256)`.
+ * `wAlphaStashFaucet` is the helper the site uses for the wrapped-Alpha (wAL)
+ * tokens; the bot mints them directly and lets simulation skip any that aren't
+ * open-mint.
+ */
+export const TOKENS = {
+  ALPHA30: '0x1D5E4617ad59c1A4428526F6994410e513587a96',
+  ALPHA64: '0xd36F494aC4D7dd5674c1a21B65FD4f5Fee14A8b4',
+  WTAO: '0x757bbFffe6f08FEbBE19638833FfADaa7B369C25',
+  wAL288: '0x7e81f63a4CeA09040F111314a0E5Ff61249a51D7', // "Endure"
+  wAL333: '0xC2f945887c3Ff61b3E5Aa7aDE291228a4B4c5d37', // "wAL-333"
+  wAL418: '0x407F2BEb996d173e34C5EC495cC80a5271Bdb77d', // "Score"
+  wAlphaStashFaucet: '0x35c23b26B3A6bF06a5ECdD7420e800dB7c7866Fe',
+} as const;
+
 export function assertChainId(actual: number): void {
   if (actual !== 945) {
     throw new Error(`Refusing: chainId ${actual} != 945 (Bittensor EVM testnet)`);

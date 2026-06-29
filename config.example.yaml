@@ -4,28 +4,39 @@ substrateRpc: "wss://test.finney.opentensor.ai:443"
 ss58Format: 42
 forgeFaucetUrl: "https://testnet.forge.endure.network"   # Forge site base (Faucet page = on-chain mint)
 substrateFaucetUrl: "https://taoswap.org/testnet-faucet" # taoswap substrate TAO faucet (captcha-gated)
-scheduleCron: "0 9 * * *"
-faucetCron: "0 8 * * *"        # faucet bot: claim substrate + EVM faucet daily
-mainCron: "30 8 * * *"        # main bot: bridge/warp/supply/borrow daily (after faucet)
+scheduleCron: "0 9 * * *"     # single daily bot run
 thresholds:
-  minSubstrateTao: "1.0"     # human TAO units; bridge/faucet target
+  minSubstrateTao: "1.0"     # human TAO units; bridge target
   minEvmGas: "0.5"           # below this the bridge step tops up EVM gas
   warpAmount: "0.2"          # native TAO wrapped into wsTAO per run
   supplyAmount: "0.15"       # wsTAO supplied
   borrowFraction: 0.3        # (legacy; borrow uses borrowAmount below)
   borrowAmount: "0.05"       # fixed borrow size, in borrow-token units
+  substrateFeeBuffer: "0.01" # taoswap faucet fires only when subTAO < bridge + this
 maxConcurrent: 1
 stepDelayMs: 3000
 accountDelayMs: 5000
+accountJitterMs: 600000        # +random 0..10min before each account; shuffles order
+daemon:                        # `npm run daemon` = 24/7, random daily gap
+  minHours: 22
+  maxHours: 26
+  startJitterMaxSec: 0         # random delay before the first run
 marketToken: "wsTAO"
 recycle: true                # repay + redeem after borrow
 dryRun: true                 # set false (or pass --no-dry-run) to broadcast
+proxyFile: "proxy.txt"       # one proxy per line, mapped to accounts by index
 captcha:
   provider: "2captcha"       # or "anticaptcha"
-# EVM faucet = mint the mock collateral token (open mint on testnet).
-evmFaucet:
-  token: "0x757bbFffe6f08FEbBE19638833FfADaa7B369C25"   # WTAO
-  amount: "5"
+# Forge devnet faucet (claimed daily): mints each token via open mint(address,uint256).
+# Non-open-mint tokens simulate-fail and are skipped (no gas spent).
+faucetDevnet:
+  amount: "1000"
+  tokens:
+    # Confirmed open-mint (mint(address,uint256)) — claim daily.
+    - { symbol: "ALPHA30", address: "0x1D5E4617ad59c1A4428526F6994410e513587a96" }
+    - { symbol: "ALPHA64", address: "0xd36F494aC4D7dd5674c1a21B65FD4f5Fee14A8b4" }
+    - { symbol: "WTAO",    address: "0x757bbFffe6f08FEbBE19638833FfADaa7B369C25" }
+    # wAL tokens (Endure/wAL-333/Score) are wrap-from-subnet-alpha, not open-mint.
 # Borrow needs CF>0 collateral (wsTAO has CF 0). mALPHA30 is openly mintable.
 collateral:
   underlying: "0x1D5E4617ad59c1A4428526F6994410e513587a96"   # mALPHA30 (CF 0.25)

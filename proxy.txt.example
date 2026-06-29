@@ -1,0 +1,14 @@
+# One proxy per line, mapped to accounts by index (line 1 -> account 1, ...).
+# Blank lines and '#' comments are ignored. Bare host:port is treated as HTTP.
+# proxy.txt OVERRIDES any "proxy" set in accounts.json.
+#
+# Supported forms:
+#   http://user:pass@host:port
+#   https://host:port
+#   socks5://user:pass@host:port
+#   host:port                  (assumed http://)
+#
+# Example (copy to proxy.txt and fill in real proxies):
+http://user:pass@1.2.3.4:8080
+socks5://user:pass@5.6.7.8:1080
+9.10.11.12:3128
