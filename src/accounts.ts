@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { mnemonicToAccount } from 'viem/accounts';
 import { Keyring } from '@polkadot/keyring';
+import { cryptoWaitReady } from '@polkadot/util-crypto';
 import { decryptJson } from './crypto.ts';
 
 export type Account = {
@@ -27,6 +28,7 @@ export function deriveSs58(mnemonic: string, ss58Format: number): string {
  * is left empty here and filled by substrate.ts (fillMirrorAddresses).
  */
 export async function loadAccounts(path: string, key: string, ss58Format: number): Promise<Account[]> {
+  await cryptoWaitReady(); // sr25519 derivation needs the WASM crypto initialised
   const text = readFileSync(path, 'utf8');
   const raw = text.trim().startsWith('[') ? JSON.parse(text) : decryptJson(text, key);
   const list = raw as Array<{ id: string; mnemonic: string; proxy?: string }>;
