@@ -15,6 +15,7 @@ export function loadState(id: string): AccountState {
 export function saveStep(id: string, step: string, patch: Partial<StepRecord>): void {
   mkdirSync(dir, { recursive: true });
   const s = loadState(id);
-  s.steps[step] = { status: 'pending', ...s.steps[step], ...patch, at: new Date().toISOString() };
+  const prev: StepRecord = s.steps[step] ?? { status: 'pending' };
+  s.steps[step] = { ...prev, ...patch, at: new Date().toISOString() };
   writeFileSync(file(id), JSON.stringify(s, null, 2));
 }
