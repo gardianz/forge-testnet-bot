@@ -1,32 +1,34 @@
 import { parseEther, parseAbi } from 'viem';
-import { nativeBalance } from '../evm.ts';
+import { erc20Balance } from '../evm.ts';
 import { execWrite } from './executor.ts';
+import { ADDRESSES } from '../contracts.ts';
 import type { Step, StepContext, StepResult } from './types.ts';
 
+const mintAbi = parseAbi(['function mint(address to, uint256 amount)']);
+
 /**
- * Claim the EVM Bittensor faucet on the Forge site. That "Faucet" page triggers
- * an on-chain mint (NOT an HTTP endpoint — `devnetFaucet` in the bundle is just
- * the menu route label). Configure `cfg.evmFaucet` (address + method) after
- * capturing one live claim tx. Until then this step skips with a warning so the
- * pipeline keeps running (the bridge step already supplies native gas).
+ * Claim the EVM Bittensor faucet on the Forge site = mint the mock collateral
+ * token. Verified live: WTAO (`0x757b…`) exposes an open `mint(address,uint256)`
+ * on testnet. Mints `cfg.evmFaucet.amount` WTAO to the account's H160 so the
+ * warp/supply steps have something to wrap. Skips when the balance already meets
+ * the target. Disable by omitting `cfg.evmFaucet`.
  */
 export const faucetEvmStep: Step = {
   name: 'faucet-evm',
   async run(ctx: StepContext): Promise<StepResult> {
-    if ((await nativeBalance(ctx.pc, ctx.account.h160)) >= parseEther(ctx.cfg.thresholds.minEvmGas)) {
-      ctx.log.info('faucet-evm: gas already sufficient');
-      return { status: 'skipped' };
-    }
     const f = ctx.cfg.evmFaucet;
     if (!f) {
-      ctx.log.warn('faucet-evm: no evmFaucet configured — capture the live claim tx, then set cfg.evmFaucet');
+      ctx.log.warn('faucet-evm: no evmFaucet configured — skipping');
       return { status: 'skipped' };
     }
-    const abi = parseAbi([
-      f.passAddress ? `function ${f.method}(address to)` : `function ${f.method}()`,
-    ]);
-    const args = f.passAddress ? [ctx.account.h160] : [];
-    const tx = await execWrite(ctx, { address: f.address as `0x${string}`, abi, functionName: f.method, args });
+    const token = (f.token ?? ADDRESSES.WTAO) as `0x${string}`;
+    const amount = parseEther(f.amount);
+    const have = await erc20Balance(ctx.pc, token, ctx.account.h160);
+    if (have >= amount) {
+      ctx.log.info({ have: have.toString() }, 'faucet-evm: token balance already sufficient');
+      return { status: 'skipped' };
+    }
+    const tx = await execWrite(ctx, { address: token, abi: mintAbi, functionName: 'mint', args: [ctx.account.h160, amount] });
     return { status: 'done', tx };
   },
 };

@@ -28,15 +28,13 @@ const ConfigSchema = z.object({
   recycle: z.boolean().default(true),
   dryRun: z.boolean().default(true),
   captcha: z.object({ provider: z.enum(['2captcha', 'anticaptcha']) }).partial().optional(),
-  // EVM faucet on the Forge site is an on-chain mint (the "Faucet" page calls a
-  // contract), NOT an HTTP endpoint. Fill after capturing one live claim tx:
-  //   address = faucet contract, method = e.g. "faucet" / "mint" / "drip",
-  //   passAddress = true if the method takes the recipient H160 as its arg.
+  // EVM faucet = mint the mock collateral token (verified: WTAO exposes an open
+  // mint(address,uint256) on testnet). `token` defaults to WTAO; `amount` is in
+  // human units minted to the account's H160.
   evmFaucet: z
     .object({
-      address: z.string(),
-      method: z.string().default('faucet'),
-      passAddress: z.boolean().default(false),
+      token: z.string().optional(),
+      amount: z.string().default('5'),
     })
     .optional(),
 });
