@@ -18,6 +18,8 @@ const ConfigSchema = z.object({
   forgeFaucetUrl: z.string().url(),
   substrateFaucetUrl: z.string().url().default('https://taoswap.org/testnet-faucet'),
   scheduleCron: z.string().default('0 9 * * *'),
+  faucetCron: z.string().default('0 8 * * *'),  // faucet bot daily
+  mainCron: z.string().default('30 8 * * *'),   // main bot daily, after faucet
   thresholds: Thresholds,
   maxConcurrent: z.number().int().positive().default(3),
   stepDelayMs: z.number().int().nonnegative().default(4000),

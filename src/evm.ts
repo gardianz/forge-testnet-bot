@@ -6,7 +6,7 @@ import {
   type PublicClient,
   type WalletClient,
 } from 'viem';
-import { mnemonicToAccount } from 'viem/accounts';
+import { privateKeyToAccount } from 'viem/accounts';
 import { ProxyAgent } from 'undici';
 import { erc20Abi, vTokenAbi, comptrollerAbi, ADDRESSES } from './contracts.ts';
 import type { Config } from './config.ts';
@@ -41,7 +41,7 @@ export function makePublicClient(cfg: Config, proxy?: string): PublicClient {
 }
 
 export function makeWalletClient(cfg: Config, acct: Account): WalletClient {
-  const account = mnemonicToAccount(acct.mnemonic, { path: "m/44'/60'/0'/0/0" });
+  const account = privateKeyToAccount(acct.evmPk);
   return createWalletClient({
     account,
     chain: defineBittensorTestnet(cfg.evmRpc),

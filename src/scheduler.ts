@@ -1,16 +1,24 @@
 import cron from 'node-cron';
 import { runAll, loadAccounts } from './runner.ts';
-import { printSummary } from './reporter.ts';
+import { printSummary, summarize } from './reporter.ts';
 import { sendTelegram } from './telegram.ts';
-import { summarize } from './reporter.ts';
 import type { Config } from './config.ts';
+import type { Step } from './steps/types.ts';
 
-export function scheduleRuns(cfg: Config, accountsPath: string, key: string): void {
-  cron.schedule(cfg.scheduleCron, async () => {
+/** Schedule one bot (a named step pipeline) on its cron expression. */
+export function scheduleBot(
+  cfg: Config,
+  accountsPath: string,
+  key: string,
+  steps: Step[],
+  cronExpr: string,
+  label: string,
+): void {
+  cron.schedule(cronExpr, async () => {
     const accounts = await loadAccounts(accountsPath, key, cfg.ss58Format);
-    const states = await runAll(cfg, accounts);
+    const states = await runAll(cfg, accounts, steps);
     printSummary(states);
-    await sendTelegram(`Forge run done:\n${summarize(states)}`);
+    await sendTelegram(`Forge ${label} run (dryRun=${cfg.dryRun}):\n${summarize(states)}`);
   });
-  console.log(`scheduled: ${cfg.scheduleCron}`);
+  console.log(`scheduled ${label}: ${cronExpr}`);
 }

@@ -5,6 +5,8 @@ ss58Format: 42
 forgeFaucetUrl: "https://testnet.forge.endure.network"   # Forge site base (Faucet page = on-chain mint)
 substrateFaucetUrl: "https://taoswap.org/testnet-faucet" # taoswap substrate TAO faucet (captcha-gated)
 scheduleCron: "0 9 * * *"
+faucetCron: "0 8 * * *"        # faucet bot: claim substrate + EVM faucet daily
+mainCron: "30 8 * * *"        # main bot: bridge/warp/supply/borrow daily (after faucet)
 thresholds:
   minSubstrateTao: "1.0"     # human TAO units
   minEvmGas: "0.1"

@@ -29,13 +29,13 @@ export async function substrateBalance(api: ApiPromise, ss58: string): Promise<b
 
 export async function transferToMirror(
   api: ApiPromise,
-  mnemonic: string,
+  seed: string,
   mirror: string,
   planck: bigint,
   dryRun: boolean,
 ): Promise<string> {
   const kr = new Keyring({ type: 'sr25519' });
-  const signer = kr.addFromMnemonic(mnemonic);
+  const signer = kr.addFromMnemonic(seed);
   const tx = api.tx.balances.transferKeepAlive(mirror, planck);
   if (dryRun) return 'dry-run';
   return new Promise<string>((resolve, reject) => {

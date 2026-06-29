@@ -8,7 +8,7 @@ import { ADDRESSES } from './contracts.ts';
 import { marketFor } from './steps/supply.ts';
 import { runAll, runAccount, STEPS } from './runner.ts';
 import { printSummary, summarize } from './reporter.ts';
-import { scheduleRuns } from './scheduler.ts';
+import { scheduleBot } from './scheduler.ts';
 import { sendTelegram } from './telegram.ts';
 import { loadState } from './state.ts';
 import type { StepContext } from './steps/types.ts';
@@ -83,7 +83,7 @@ export async function main(): Promise<void> {
 
   if (args.check) { await printCheck(cfg, accounts); return; }
 
-  if (args.schedule) { scheduleRuns(cfg, process.env.FORGE_ACCOUNTS || 'accounts.json', key); return; }
+  if (args.schedule) { scheduleBot(cfg, process.env.FORGE_ACCOUNTS || 'accounts.json', key, STEPS, cfg.scheduleCron, 'full'); return; }
 
   if (args.step) {
     const step = STEPS.find((s) => s.name === args.step);

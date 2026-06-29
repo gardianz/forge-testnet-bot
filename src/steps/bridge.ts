@@ -20,7 +20,7 @@ export const bridgeStep: Step = {
     }
     if (!ctx.api) return { status: 'failed', error: 'substrate api not connected' };
     const planck = parseUnits(ctx.cfg.thresholds.minSubstrateTao, 9);
-    const tx = await transferToMirror(ctx.api, ctx.account.mnemonic, ctx.account.mirrorSs58, planck, ctx.cfg.dryRun);
+    const tx = await transferToMirror(ctx.api, ctx.account.substrateSeed, ctx.account.mirrorSs58, planck, ctx.cfg.dryRun);
     return { status: 'done', tx };
   },
 };

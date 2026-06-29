@@ -15,7 +15,13 @@ import { borrowStep } from './steps/borrow.ts';
 import { repayStep } from './steps/repay.ts';
 import { redeemStep } from './steps/redeem.ts';
 
-/** Full pipeline order. */
+/** Faucet bot: claim substrate TAO + EVM faucet tokens. */
+export const FAUCET_STEPS: Step[] = [faucetSubstrateStep, faucetEvmStep];
+
+/** Main bot: bridge substrate->EVM, then warp/supply/borrow/repay/redeem. */
+export const MAIN_STEPS: Step[] = [bridgeStep, warpStep, supplyStep, borrowStep, repayStep, redeemStep];
+
+/** Full pipeline (used by --once / --step lookups). */
 export const STEPS: Step[] = [
   faucetSubstrateStep,
   bridgeStep,
@@ -60,8 +66,8 @@ function makeCtx(cfg: Config, account: Account, api: Awaited<ReturnType<typeof c
   };
 }
 
-/** Concurrency-limited fan-out across accounts. */
-export async function runAll(cfg: Config, accounts: Account[]): Promise<AccountState[]> {
+/** Concurrency-limited fan-out across accounts, running `steps` per account. */
+export async function runAll(cfg: Config, accounts: Account[], steps: Step[] = STEPS): Promise<AccountState[]> {
   fillMirrorAddresses(accounts, cfg.ss58Format);
   const api = await connectSubstrate(cfg).catch(() => null);
   const results: AccountState[] = [];
@@ -72,7 +78,7 @@ export async function runAll(cfg: Config, accounts: Account[]): Promise<AccountS
       const account = queue.shift();
       if (!account) return;
       const ctx = makeCtx(cfg, account, api);
-      results.push(await runAccount(ctx));
+      results.push(await runAccount(ctx, steps));
       if (cfg.accountDelayMs) await sleep(cfg.accountDelayMs);
     }
   }

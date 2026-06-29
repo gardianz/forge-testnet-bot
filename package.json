@@ -8,6 +8,10 @@
     "start": "tsx src/main.ts",
     "run:once": "tsx src/main.ts --once",
     "check": "tsx src/main.ts --check",
+    "faucet": "tsx src/faucet-bot.ts",
+    "faucet:schedule": "tsx src/faucet-bot.ts --schedule",
+    "main": "tsx src/main-bot.ts",
+    "main:schedule": "tsx src/main-bot.ts --schedule",
     "verify": "tsx tools/verify-deployment.ts"
   },
   "dependencies": {
